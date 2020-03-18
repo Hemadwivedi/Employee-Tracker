@@ -2,6 +2,7 @@ const mysql = require("mysql");
 const inquirer = require("inquirer");
 const roleDb = require("./roleDb");
 const departmentDb = require("./departmentDb");
+const employeesDb = require("./employeeDb");
 
 
 
@@ -89,7 +90,7 @@ view_data = () => {
                     roleDb.getAllRoles(connection).then(res => console.table(res));
                     break;
                 case "employee":
-                    viewEmployee();
+                    employeesDb.getAllEmp(connection).then(res => console.table(res));
                     break;
                 case "employee by manager":
                     viewEmployeesByManager();
@@ -174,7 +175,7 @@ update_data = async () => {
                 {
                     type: "list",
                     message: "Please select the manager of the employee or no if there isn't one: ",
-                    choices: await managerQuery(),
+                    choices: await employeesDb.getAllManager(connection),
                     name: "manager"
                 }
             ])
@@ -183,45 +184,24 @@ update_data = async () => {
                 console.log("Inserting a new employee...\n");
                 const firstName = answer.firstName;
                 const lastName = answer.lastName;
-
                 const roleId = await roleDb.getRoleIdByTitle(connection, answer.role);
-                const managerId = answer.manager === "None" ? null : await managerIdQuery(answer.manager);
-                const query = connection.query("INSERT INTO employee SET ?", {
+                const managerId = answer.manager === "None" ? null : await employeesDb.getEmpIdByName(connection, answer.manager);
+                const emp = {
                     first_name: firstName,
                     last_name: lastName,
                     role_id: roleId,
                     manager_id: managerId
-                }, (err, res) => {
-                    if (err) throw err;
-                    console.log(res.affectedRows + " employee added!\n")
-                    start();
-                });
-                console.log(query.sql);
-
+                };
+                employeesDb.createEmployee(connection, emp)
+                    .then(res => {
+                        console.log(res.affectedRows + " employee added!\n")
+                        start();
+                    });
             });
     };
 
-    managerQuery = () => {
-        return new Promise((resolve, reject) => {
-            const managerArr = ["None"]
-            connection.query('SELECT employee.id, CONCAT(employee.first_name, " ", employee.last_name) AS employee, role.title FROM employee INNER JOIN role ON employee.role_id = role.id WHERE role.title = "General Manager" OR role.title = "Assistant Manager" OR role.title = "Sales Lead" OR role.title = "HR Specialist"', (err, res) => {
-                if (err) throw err;
-                console.log(res);
-                res.forEach(manager => {
-                    managerArr.push(manager.employee);
-                    return err ? reject(err) : resolve(managerArr);
-                });
-            })
-        });
-    };
-    managerIdQuery = manager => {
-        return new Promise((resolve, reject) => {
-            connection.query('SELECT id FROM employee WHERE CONCAT(first_name, " ", last_name)=?', manager, async (err, res) => {
-                if (err) throw err;
-                return err ? reject(err) : resolve(res[0].id);
-            });
-        });
-    };
+
+
 
     addRole = async () => {
         inquirer
@@ -246,33 +226,21 @@ update_data = async () => {
                 console.log("Inserting a new role...\n");
                 const newRole = answer.title;
                 const newSalary = answer.salary;
-                const departmentId = await departmentDb.getDepartmentIdByName(connection,answer.department);
+                const departmentId = await departmentDb.getDepartmentIdByName(connection, answer.department);
                 const role = {
                     title: newRole,
                     salary: newSalary,
                     department_id: departmentId
                 };
-                const query = await roleDb.createRole(connection ,role);
-                console.log(query.sql);
-                start();
-
+                roleDb.createRole(connection, role)
+                    .then(res => {
+                        console.log(res.affectedRows + " role added!\n")
+                        start();
+                    });
             });
     };
-    departmentQuery = () => {
-        return new Promise((resolve, reject) => {
-            const departmentArr = [];
-            connection.query("SELECT department_name FROM departments", (err, res) => {
-                if (err) throw err;
-                console.log(res);
-                res.forEach(department => {
-                    departmentArr.push(department.department_name);
-                    return err ? reject(err) : resolve(departmentArr);
-                });
-            });
 
-        });
-    };
-   
+
     addDepartment = async () => {
         inquirer
             .prompt([{
@@ -286,62 +254,45 @@ update_data = async () => {
                 console.group(answer);
                 console.log("Inserting a new department...\n");
                 const newDepartment = answer.name;
-                const query = connection.query("INSERT INTO departments SET ?", {
-                    department_name: newDepartment
-                }, (err, res) => {
-                    if (err) throw err;
-                    console.log(res.affectedRows + " department added!\n")
-                    start();
-                });
-                console.log(query.sql);
-
+                departmentDb.createDepartment(connection, {
+                        department_name: newDepartment
+                    })
+                    .then(res => {
+                        console.log(res.affectedRows + " department added!\n")
+                        start();
+                    })
             });
     };
 
 
-    viewEmployee = () => {
-        const query = "SELECT * FROM employee"
-        connection.query(query, (err, res) => {
-            if (err) throw err;
-            console.table(res);
 
-        });
-
-    }
 
     viewEmployeesByManager = async () => {
         inquirer
             .prompt({
                 type: "list",
                 message: "Select a MANAGER to view employees (or NONE to see unmanaged employees): ",
-                choices: await managerQuery(),
+                choices: await employeesDb.getAllManager(connection),
                 name: "manager"
             })
             .then(async answer => {
-                const managerId = answer.manager === "None" ? null : await managerIdQuery(answer.manager);
+                const managerId = answer.manager === "None" ? null : await employeesDb.getEmpIdByName(connection, answer.manager);
                 if (managerId === null) {
-                    connection.query("SELECT CONCAT(first_name, ' ', last_name) as employees FROM employee where manager_id is null", (err, res) => {
-                        if (err) throw err;
-                        console.table(res);
-
-                        start();
-                    })
-                } else {
-                    connection.query("SELECT CONCAT(first_name, ' ', last_name) as employees FROM employee where manager_id=?", [managerId], (err, res) => {
-                        if (err) throw err;
-                        console.log()
-                        if (res.length < 1) {
-                            console.log("No employees to show!");
-
-
-                            start();
-                        } else {
+                    employeesDb.getEmpNameWithoutManager(connection)
+                        .then(res => {
                             console.table(res);
-
-
                             start();
-                        }
-                    });
+                        })
+                } else {
+                    employeesDb.getEmpNameByManagerId(connection, managerId)
+                        .then(res => {
+                            if (res.length < 1) {
+                                console.log("No employees to show!");
+                            } else {
+                                console.table(res);
+                            }
+                            start();
+                        })
                 };
             });
     };
@@ -359,17 +310,18 @@ update_data = async () => {
                 console.group(answer);
                 console.log("Deleting a  department...\n");
                 const newDepartment = answer.name;
-                departmentDb.deleteDepartment(connection ,{department_name: newDepartment})
-                .then(res => {
-                    console.log(res.affectedRows + " department deleted!\n")
-                    start();
-                })
+                departmentDb.deleteDepartment(connection, {
+                        department_name: newDepartment
+                    })
+                    .then(res => {
+                        console.log(res.affectedRows + " department deleted!\n")
+                        start();
+                    })
             });
     };
     deleteRole = async () => {
         inquirer
-            .prompt([
-                {
+            .prompt([{
                     type: "list",
                     message: "Please select the role you want to delete o: ",
                     choices: await roleDb.getAllRoleTitle(connection),
@@ -381,11 +333,13 @@ update_data = async () => {
                 console.group(answer);
                 console.log("Deleting a  role...\n");
                 const newRole = answer.title;
-                roleDb.deleteRole(connection , {title: newRole})
-                .then(res => {
-                    console.log(res.affectedRows + " role deleted!\n")
-                    start();
-                });
+                roleDb.deleteRole(connection, {
+                        title: newRole
+                    })
+                    .then(res => {
+                        console.log(res.affectedRows + " role deleted!\n")
+                        start();
+                    });
             });
     };
     deleteEmployee = async () => {
@@ -393,11 +347,11 @@ update_data = async () => {
             .prompt({
                 type: "list",
                 message: "Please select the employee to delete: ",
-                choices: await getAllRoleTitle(),
+                choices: await roleDb.getAllRoleTitle(connection),
                 name: "employee"
             }).then(async answer => {
                 console.log("Deleting selected employee...\n");
-                const employeeId = await getRoleIdByTitle(answer.employee);
+                const employeeId = await roleDb.getRoleIdByTitle(connection, answer.employee);
                 const query = connection.query("DELETE FROM employee WHERE id=?", [employeeId], (err, res) => {
                     if (err) throw err;
                     console.log(res.affectedRows + " employee deleted!\n");
@@ -427,7 +381,7 @@ updateEmployeeRole = async () => {
         .then(async answer => {
             console.log("Updating employee role...\n");
             const employeeId = await getRoleIdByTitle(answer.employee);
-            const newRoleID = await departmentDb.getDepartmentIdByName(connection,answer.role);
+            const newRoleID = await departmentDb.getDepartmentIdByName(connection, answer.role);
 
 
             const query = connection.query("UPDATE employee SET ? WHERE id=?",
@@ -456,14 +410,14 @@ updateManager = async () => {
             {
                 type: "list",
                 message: "Please select the employee's updated [MANAGER] (Or [NONE] if there isn't one): ",
-                choices: await managerQuery(),
+                choices: await employeesDb.getAllManager(connection),
                 name: "manager"
             }
         ])
         .then(async answer => {
             console.log("Updating employee's manager...\n")
             const employeeId = await getRoleIdByTitle(answer.employee);
-            const newManagerID = answer.manager === "None" ? null : await managerIdQuery(answer.manager);
+            const newManagerID = answer.manager === "None" ? null : await employeesDb.getEmpIdByName(connection, answer.manager);
             const query = connection.query("UPDATE employee SET ? WHERE id=?",
                 [{
                         manager_id: newManagerID

@@ -8,6 +8,7 @@ const getAllDepartment = (connection) => {
         })
     });
 }
+
 const getAllDepartmentName = (connection) => {
     const departmentNames = [];
     return new Promise((resolve, reject) => {
@@ -17,6 +18,14 @@ const getAllDepartmentName = (connection) => {
                 departmentNames.push(dpt.department_name);
             });
             return err ? reject(err) : resolve(departmentNames);
+        })
+    });
+}
+const createDepartment=(connection,department) => {
+    return new Promise((resolve, reject) => {
+        connection.query("INSERT INTO departments SET ?", department, async (err, res) => {
+            if (err) throw err;
+            return err ? reject(err) : resolve(res);
         })
     });
 }
@@ -40,5 +49,6 @@ module.exports = {
     getAllDepartment: getAllDepartment,
     deleteDepartment:deleteDepartment,
     getAllDepartmentName :getAllDepartmentName,
-    getDepartmentIdByName:getDepartmentIdByName
+    getDepartmentIdByName:getDepartmentIdByName,
+    createDepartment : createDepartment
 }
