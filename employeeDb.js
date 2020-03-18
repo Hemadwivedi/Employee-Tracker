@@ -1,4 +1,5 @@
 const mysql = require("mysql");
+
 const getAllEmp = (connection) => {
     return new Promise((resolve, reject) => {
         connection.query("SELECT * FROM employee", async (err, res) => {
@@ -10,13 +11,9 @@ const getAllEmp = (connection) => {
 const getAllManager = (connection) => {
     return new Promise((resolve, reject) => {
         const managerArr = ["None"]
-        connection.query('SELECT employee.id, CONCAT(employee.first_name, " ", employee.last_name) AS employee, role.title FROM employee INNER JOIN role ON employee.role_id = role.id WHERE role.title = "General Manager" OR role.title = "Assistant Manager" OR role.title = "Sales Lead" OR role.title = "HR Specialist"', (err, res) => {
+        connection.query('SELECT employee.* FROM employee INNER JOIN role ON employee.role_id = role.id WHERE role.title = "General Manager" OR role.title = "Assistant Manager" OR role.title = "Sales Lead" OR role.title = "HR Specialist"', (err, res) => {
             if (err) throw err;
-            console.log(res);
-            res.forEach(manager => {
-                managerArr.push(manager.employee);
-                return err ? reject(err) : resolve(managerArr);
-            });
+            return err ? reject(err) : resolve(res);
         })
     });
 };
@@ -54,6 +51,47 @@ const createEmployee = (connection, employee) => {
         })
     });
 }
+const deleteemp = (connection, input) => {
+    return new Promise((resolve, reject) => {
+        connection.query("DELETE FROM employee WHERE id=?", input, async (err, res) => {
+            if (err) throw err;
+            return err ? reject(err) : resolve(res);
+        })
+    });
+}
+const updateEmployeeRole = (connection, roleId, employeeId) => {
+    return new Promise((resolve, reject) => {
+        console.log("Updating employee role...\n");
+
+        const query = connection.query("UPDATE employee SET ? WHERE id=?",
+            [{
+                    role_id: roleId
+                },
+                employeeId
+            ], async (err, res) => {
+                if (err) throw err;
+                return err ? reject(err) : resolve(res);
+            });
+
+    });
+}
+
+const updateManager = (connection, newManagerID, employeeId) => {
+    return new Promise((resolve, reject) => {
+        console.log("Updating employee's manager...\n");
+        connection.query("UPDATE employee SET ? WHERE id=?",
+            [{
+                    manager_id: newManagerID
+                },
+                employeeId
+            ], async (err, res) => {
+                if (err) throw err;
+                return err ? reject(err) : resolve(res);
+            });
+
+
+    })
+}
 
 module.exports = {
     getAllEmp: getAllEmp,
@@ -61,5 +99,8 @@ module.exports = {
     getEmpIdByName: getEmpIdByName,
     getEmpNameWithoutManager: getEmpNameWithoutManager,
     getEmpNameByManagerId: getEmpNameByManagerId,
-    createEmployee:createEmployee
+    createEmployee: createEmployee,
+    deleteemp: deleteemp,
+    updateEmployeeRole: updateEmployeeRole,
+    updateManager: updateManager
 }
