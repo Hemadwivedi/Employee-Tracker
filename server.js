@@ -1,9 +1,9 @@
 const mysql = require("mysql");
 const inquirer = require("inquirer");
 const dotenv = require('dotenv').config();
-const roleDb = require("./roleDb");
-const departmentDb = require("./departmentDb");
-const employeesDb = require("./employeeDb");
+const roleDb = require("./db/roleDb");
+const departmentDb = require("./db/departmentDb");
+const employeesDb = require("./db/employeeDb");
 
 
 
