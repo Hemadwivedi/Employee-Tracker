@@ -11,7 +11,7 @@ So that I can organize and plan my business.
 Usage
 
 # Demo
-![Demo](https://raw.githubusercontent.com/Hemadwivedi/readme/master/img/demo.gif)
+![Demo](https://raw.githubusercontent.com/Hemadwivedi/Employee-Tracker/master/img/employe_tracker.gif)
 
 
 
